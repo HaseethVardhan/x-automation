@@ -138,11 +138,11 @@ enum AuditEventType {
 }
 
 model AdminUser {
-  id                        String                    @id @default(uuid())
-  email                     String                    @unique
+  id                        String                     @id @default(uuid())
+  email                     String                     @unique
   passwordHash              String
-  createdAt                 DateTime                  @default(now())
-  updatedAt                 DateTime                  @updatedAt
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
   managedAccounts           ManagedAccount[]
   managedAccountCredentials ManagedAccountCredential[]
   createdCompetitors        Competitor[]
@@ -152,55 +152,55 @@ model AdminUser {
 }
 
 model ManagedAccount {
-  id                   String                   @id @default(uuid())
-  xHandle              String                   @unique
-  displayName          String?
-  category             String
-  status               ManagedAccountStatus     @default(ACTIVE)
-  connectionMode       AccountConnectionMode
-  goalsSummary         String?
-  notes                String?
-  createdByAdminUserId String
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
-  archivedAt           DateTime?
-  createdByAdminUser   AdminUser                @relation(fields: [createdByAdminUserId], references: [id])
-  preferenceProfile    AccountPreference?
-  credentials          ManagedAccountCredential[]
-  competitors          Competitor[]
+  id                    String                     @id @default(uuid())
+  xHandle               String                     @unique
+  displayName           String?
+  category              String
+  status                ManagedAccountStatus       @default(ACTIVE)
+  connectionMode        AccountConnectionMode
+  goalsSummary          String?
+  notes                 String?
+  createdByAdminUserId  String
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  archivedAt            DateTime?
+  createdByAdminUser    AdminUser                  @relation(fields: [createdByAdminUserId], references: [id])
+  preferenceProfile     AccountPreference?
+  credentials           ManagedAccountCredential[]
+  competitors           Competitor[]
   competitorSuggestions CompetitorSuggestion[]
-  researchRuns         ResearchRun[]
-  auditEvents          AuditEvent[]
+  researchRuns          ResearchRun[]
+  auditEvents           AuditEvent[]
 
   @@index([status])
   @@index([category])
 }
 
 model ResearchRun {
-  id                     String                 @id @default(uuid())
-  managedAccountId       String
-  requestedByAdminUserId String
-  status                 RunStatus
-  priority               RunPriority            @default(NORMAL)
-  currentStage           RunStage?
-  progressPercent        Int                    @default(0)
-  inputSnapshot          Json
-  summary                Json?
-  warningCount           Int                    @default(0)
-  errorCount             Int                    @default(0)
-  startedAt              DateTime?
-  completedAt            DateTime?
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  managedAccount         ManagedAccount         @relation(fields: [managedAccountId], references: [id])
-  requestedByAdminUser   AdminUser              @relation(fields: [requestedByAdminUserId], references: [id])
-  stages                 ResearchRunStage[]
-  sourceSnapshots        SourceSnapshot[]
-  creatorProfileArtifact CreatorProfileArtifact?
-  competitorInsightArtifact CompetitorInsightArtifact?
-  topicCandidates        TopicCandidate[]
-  draftVariants          DraftVariant[]
-  auditEvents            AuditEvent[]
+  id                             String                     @id @default(uuid())
+  managedAccountId               String
+  requestedByAdminUserId         String
+  status                         RunStatus
+  priority                       RunPriority                @default(NORMAL)
+  currentStage                   RunStage?
+  progressPercent                Int                        @default(0)
+  inputSnapshot                  Json
+  summary                        Json?
+  warningCount                   Int                        @default(0)
+  errorCount                     Int                        @default(0)
+  startedAt                      DateTime?
+  completedAt                    DateTime?
+  createdAt                      DateTime                   @default(now())
+  updatedAt                      DateTime                   @updatedAt
+  managedAccount                 ManagedAccount             @relation(fields: [managedAccountId], references: [id])
+  requestedByAdminUser           AdminUser                  @relation(fields: [requestedByAdminUserId], references: [id])
+  stages                         ResearchRunStage[]
+  sourceSnapshots                SourceSnapshot[]
+  creatorProfileArtifact         CreatorProfileArtifact?
+  competitorInsightArtifact      CompetitorInsightArtifact?
+  topicCandidates                TopicCandidate[]
+  draftVariants                  DraftVariant[]
+  auditEvents                    AuditEvent[]
   generatedCompetitorSuggestions CompetitorSuggestion[]
 
   @@index([managedAccountId, createdAt(sort: Desc)])
@@ -209,21 +209,21 @@ model ResearchRun {
 }
 
 model ResearchRunStage {
-  id              String       @id @default(uuid())
+  id              String      @id @default(uuid())
   researchRunId   String
   stage           RunStage
-  attemptNumber   Int          @default(1)
+  attemptNumber   Int         @default(1)
   status          StageStatus
-  progressPercent Int          @default(0)
+  progressPercent Int         @default(0)
   inputRef        Json?
   outputRef       Json?
   errorCode       String?
   errorMessage    String?
   startedAt       DateTime?
   completedAt     DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  researchRun     ResearchRun  @relation(fields: [researchRunId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  researchRun     ResearchRun @relation(fields: [researchRunId], references: [id])
 
   @@unique([researchRunId, stage, attemptNumber])
   @@index([researchRunId, stage])
@@ -339,7 +339,7 @@ model ReviewDecision {
 }
 
 model AuditEvent {
-  id               String         @id @default(uuid())
+  id               String          @id @default(uuid())
   actorAdminUserId String?
   managedAccountId String?
   researchRunId    String?
@@ -347,10 +347,10 @@ model AuditEvent {
   entityType       String
   entityId         String
   metadata         Json?
-  createdAt        DateTime       @default(now())
-  actorAdminUser   AdminUser?     @relation(fields: [actorAdminUserId], references: [id])
+  createdAt        DateTime        @default(now())
+  actorAdminUser   AdminUser?      @relation(fields: [actorAdminUserId], references: [id])
   managedAccount   ManagedAccount? @relation(fields: [managedAccountId], references: [id])
-  researchRun      ResearchRun?   @relation(fields: [researchRunId], references: [id])
+  researchRun      ResearchRun?    @relation(fields: [researchRunId], references: [id])
 
   @@index([createdAt(sort: Desc)])
   @@index([eventType])
@@ -360,19 +360,19 @@ model AuditEvent {
 }
 
 model Competitor {
-  id                       String               @id @default(uuid())
+  id                       String                @id @default(uuid())
   managedAccountId         String
   xHandle                  String
   displayName              String?
   source                   CompetitorSource
-  status                   CompetitorStatus     @default(ACTIVE)
-  acceptedFromSuggestionId String?              @unique
+  status                   CompetitorStatus      @default(ACTIVE)
+  acceptedFromSuggestionId String?               @unique
   createdByAdminUserId     String?
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
-  managedAccount           ManagedAccount       @relation(fields: [managedAccountId], references: [id])
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  managedAccount           ManagedAccount        @relation(fields: [managedAccountId], references: [id])
   acceptedFromSuggestion   CompetitorSuggestion? @relation("AcceptedCompetitorFromSuggestion", fields: [acceptedFromSuggestionId], references: [id])
-  createdByAdminUser       AdminUser?           @relation(fields: [createdByAdminUserId], references: [id])
+  createdByAdminUser       AdminUser?            @relation(fields: [createdByAdminUserId], references: [id])
 
   @@unique([managedAccountId, xHandle])
   @@index([xHandle])
@@ -380,20 +380,20 @@ model Competitor {
 }
 
 model CompetitorSuggestion {
-  id                 String               @id @default(uuid())
+  id                 String           @id @default(uuid())
   managedAccountId   String
   xHandle            String
   displayName        String?
   suggestionReason   Json
-  confidenceScore    Decimal              @db.Decimal(3, 2)
-  status             SuggestionStatus     @default(PENDING)
+  confidenceScore    Decimal          @db.Decimal(3, 2)
+  status             SuggestionStatus @default(PENDING)
   generatedByRunId   String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   decidedAt          DateTime?
-  managedAccount     ManagedAccount       @relation(fields: [managedAccountId], references: [id])
-  generatedByRun     ResearchRun?         @relation(fields: [generatedByRunId], references: [id])
-  acceptedCompetitor Competitor?          @relation("AcceptedCompetitorFromSuggestion")
+  managedAccount     ManagedAccount   @relation(fields: [managedAccountId], references: [id])
+  generatedByRun     ResearchRun?     @relation(fields: [generatedByRunId], references: [id])
+  acceptedCompetitor Competitor?      @relation("AcceptedCompetitorFromSuggestion")
 
   @@unique([managedAccountId, xHandle, status])
   @@index([xHandle])
@@ -402,21 +402,21 @@ model CompetitorSuggestion {
 }
 
 model AccountPreference {
-  id                           String         @id @default(uuid())
-  managedAccountId             String         @unique
-  objective                    String?
-  toneGuidance                 Json?
-  bannedThemes                 Json?
-  bannedClaims                 Json?
-  bannedFormats                Json?
-  preferredFormats             Json?
-  competitorSuggestionEnabled  Boolean        @default(true)
-  externalTrendEnabled         Boolean        @default(true)
-  noveltyLookbackDays          Int            @default(120)
-  maxDraftVariants             Int            @default(3)
-  createdAt                    DateTime       @default(now())
-  updatedAt                    DateTime       @updatedAt
-  managedAccount               ManagedAccount @relation(fields: [managedAccountId], references: [id])
+  id                          String         @id @default(uuid())
+  managedAccountId            String         @unique
+  objective                   String?
+  toneGuidance                Json?
+  bannedThemes                Json?
+  bannedClaims                Json?
+  bannedFormats               Json?
+  preferredFormats            Json?
+  competitorSuggestionEnabled Boolean        @default(true)
+  externalTrendEnabled        Boolean        @default(true)
+  noveltyLookbackDays         Int            @default(120)
+  maxDraftVariants            Int            @default(3)
+  createdAt                   DateTime       @default(now())
+  updatedAt                   DateTime       @updatedAt
+  managedAccount              ManagedAccount @relation(fields: [managedAccountId], references: [id])
 }
 
 model ManagedAccountCredential {
