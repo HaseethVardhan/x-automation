@@ -3,16 +3,83 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildPaginationMeta, type PaginationMeta } from '../shared/pagination/page-query.dto';
 import {
+	MANAGED_ACCOUNT_STATUS,
 	type ManagedAccountConnectionMode,
 	type ManagedAccountStatus,
 } from './managed-account.constants';
 import { CreateManagedAccountDto } from './dto/create-managed-account.dto';
 import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
-import { DuplicateManagedAccountHandleException } from './managed-accounts.errors';
+import {
+	DuplicateManagedAccountHandleException,
+	ManagedAccountNotFoundException,
+} from './managed-accounts.errors';
 
 @Injectable()
 export class ManagedAccountsService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async getAccountDetail(accountId: string): Promise<ManagedAccountDetailResponse> {
+		const account = await this.prisma.managedAccount.findUnique({
+			where: { id: accountId },
+			select: MANAGED_ACCOUNT_DETAIL_SELECT,
+		});
+
+		if (!account) {
+			throw new ManagedAccountNotFoundException(accountId);
+		}
+
+		const activeCredentialCount = account.credentials.filter(
+			(credential) => credential.status === 'ACTIVE',
+		).length;
+		const activeCompetitorCount = account.competitors.filter(
+			(competitor) => competitor.status === 'ACTIVE',
+		).length;
+
+		return {
+			id: account.id,
+			xHandle: account.xHandle,
+			displayName: account.displayName,
+			category: account.category,
+			status: account.status,
+			connectionMode: account.connectionMode,
+			goalsSummary: account.goalsSummary,
+			notes: account.notes,
+			archivedAt: account.archivedAt,
+			createdAt: account.createdAt,
+			updatedAt: account.updatedAt,
+			readinessSummary: {
+				credentials: {
+					totalCount: account.credentials.length,
+					activeCount: activeCredentialCount,
+					lastValidatedAt: getLatestDate(
+						account.credentials
+							.map((credential) => credential.lastValidatedAt)
+							.filter((date): date is Date => date instanceof Date),
+					),
+				},
+				preferences: {
+					isConfigured: account.preferenceProfile !== null,
+					updatedAt: account.preferenceProfile?.updatedAt ?? null,
+				},
+				competitors: {
+					totalCount: account.competitors.length,
+					activeCount: activeCompetitorCount,
+				},
+			},
+			latestRunSummary: account.researchRuns[0]
+				? {
+						id: account.researchRuns[0].id,
+						status: account.researchRuns[0].status,
+						currentStage: account.researchRuns[0].currentStage,
+						progressPercent: account.researchRuns[0].progressPercent,
+						warningCount: account.researchRuns[0].warningCount,
+						errorCount: account.researchRuns[0].errorCount,
+						createdAt: account.researchRuns[0].createdAt,
+						completedAt: account.researchRuns[0].completedAt,
+					}
+				: null,
+		};
+	}
 
 	async listAccounts(
 		query: ListManagedAccountsQueryDto,
@@ -115,6 +182,73 @@ export type ManagedAccountListResult = {
 	pagination: PaginationMeta;
 };
 
+export type ManagedAccountDetailResponse = ManagedAccountResponse & {
+	readinessSummary: {
+		credentials: {
+			totalCount: number;
+			activeCount: number;
+			lastValidatedAt: Date | null;
+		};
+		preferences: {
+			isConfigured: boolean;
+			updatedAt: Date | null;
+		};
+		competitors: {
+			totalCount: number;
+			activeCount: number;
+		};
+	};
+	latestRunSummary: {
+		id: string;
+		status: string;
+		currentStage: string | null;
+		progressPercent: number;
+		warningCount: number;
+		errorCount: number;
+		createdAt: Date;
+		completedAt: Date | null;
+	} | null;
+};
+
+const MANAGED_ACCOUNT_DETAIL_SELECT = {
+	...MANAGED_ACCOUNT_RESPONSE_SELECT,
+	credentials: {
+		select: {
+			id: true,
+			status: true,
+			lastValidatedAt: true,
+		},
+	},
+	preferenceProfile: {
+		select: {
+			id: true,
+			updatedAt: true,
+		},
+	},
+	competitors: {
+		select: {
+			id: true,
+			status: true,
+		},
+	},
+	researchRuns: {
+		take: 1,
+		orderBy: {
+			createdAt: 'desc',
+		},
+		select: {
+			id: true,
+			status: true,
+			currentStage: true,
+			progressPercent: true,
+			warningCount: true,
+			errorCount: true,
+			createdAt: true,
+			completedAt: true,
+		},
+	},
+} satisfies Prisma.ManagedAccountSelect;
+
 function buildManagedAccountListWhere(
 	query: ListManagedAccountsQueryDto,
 ): Prisma.ManagedAccountWhereInput {
@@ -152,6 +286,16 @@ function buildManagedAccountListWhere(
 	}
 
 	return where;
+}
+
+function getLatestDate(dates: Date[]): Date | null {
+	if (dates.length === 0) {
+		return null;
+	}
+
+	return dates.reduce((latestDate, currentDate) =>
+		currentDate.getTime() > latestDate.getTime() ? currentDate : latestDate,
+	);
 }
 
 function isDuplicateXHandleError(error: unknown): boolean {

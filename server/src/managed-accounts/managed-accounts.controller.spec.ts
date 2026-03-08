@@ -17,11 +17,14 @@ import {
 import { ManagedAccountsController } from './managed-accounts.controller';
 import {
   DUPLICATE_HANDLE_API_MESSAGE,
+  MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
   DuplicateManagedAccountHandleException,
+  ManagedAccountNotFoundException,
 } from './managed-accounts.errors';
 import { ManagedAccountsService } from './managed-accounts.service';
 
 const managedAccountsService = {
+  getAccountDetail: jest.fn(),
   listAccounts: jest.fn(),
   createAccount: jest.fn(),
 };
@@ -109,6 +112,144 @@ describe('ManagedAccountsController', () => {
           pageSize: 5,
           totalItems: 11,
           totalPages: 3,
+        });
+      });
+
+    await app.close();
+  });
+
+  it('returns managed account detail with readiness summary inputs and latest run summary', async () => {
+    const createdAt = new Date('2026-03-01T10:00:00.000Z');
+    const updatedAt = new Date('2026-03-08T10:00:00.000Z');
+    const runCreatedAt = new Date('2026-03-08T09:00:00.000Z');
+    const runCompletedAt = new Date('2026-03-08T10:00:00.000Z');
+    const app = await createApp();
+
+    managedAccountsService.getAccountDetail.mockResolvedValue({
+      id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Grow reach with founder-led product content',
+      notes: null,
+      archivedAt: null,
+      createdAt,
+      updatedAt,
+      readinessSummary: {
+        credentials: {
+          totalCount: 2,
+          activeCount: 1,
+          lastValidatedAt: updatedAt,
+        },
+        preferences: {
+          isConfigured: true,
+          updatedAt,
+        },
+        competitors: {
+          totalCount: 3,
+          activeCount: 2,
+        },
+      },
+      latestRunSummary: {
+        id: 'run-1',
+        status: 'COMPLETED',
+        currentStage: 'FINALIZE_RUN',
+        progressPercent: 100,
+        warningCount: 0,
+        errorCount: 0,
+        createdAt: runCreatedAt,
+        completedAt: runCompletedAt,
+      },
+    });
+
+    await request(getHttpServer(app))
+      .get('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a')
+      .expect(200)
+      .expect((response: SupertestResponse) => {
+        const body = getSuccessBody(response);
+
+        expect(managedAccountsService.getAccountDetail).toHaveBeenCalledWith(
+          '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+        );
+        expect(body.success).toBe(true);
+        expect(body.data).toMatchObject({
+          id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          xHandle: 'creator_handle',
+          readinessSummary: {
+            credentials: {
+              totalCount: 2,
+              activeCount: 1,
+            },
+            preferences: {
+              isConfigured: true,
+            },
+            competitors: {
+              totalCount: 3,
+              activeCount: 2,
+            },
+          },
+          latestRunSummary: {
+            id: 'run-1',
+            status: 'COMPLETED',
+            currentStage: 'FINALIZE_RUN',
+            progressPercent: 100,
+          },
+        });
+      });
+
+    await app.close();
+  });
+
+  it('validates accountId params for the managed account detail endpoint', async () => {
+    const app = await createApp();
+
+    await request(getHttpServer(app))
+      .get('/managed-accounts/not-a-uuid')
+      .expect(400)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+        const details = getValidationDetails(body);
+
+        expect(body.error.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(details).toEqual(
+          expect.arrayContaining([
+            {
+              field: 'accountId',
+              errors: expect.arrayContaining(['accountId must be a UUID']),
+            },
+          ]),
+        );
+      });
+
+    expect(managedAccountsService.getAccountDetail).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('surfaces managed-account-not-found errors through the shared error envelope', async () => {
+    const app = await createApp();
+
+    managedAccountsService.getAccountDetail.mockRejectedValue(
+      new ManagedAccountNotFoundException(
+        '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      ),
+    );
+
+    await request(getHttpServer(app))
+      .get('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a')
+      .expect(404)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+
+        expect(body.success).toBe(false);
+        expect(body.error).toEqual({
+          code: API_ERROR_CODES.MANAGED_ACCOUNT_NOT_FOUND,
+          message: MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
+          details: {
+            accountId: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          },
         });
       });
 
