@@ -8,12 +8,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ManagedAccountStatus {
+  ACTIVE
+  PAUSED
+  DISCONNECTED
+  ARCHIVED
+}
+
+enum AccountConnectionMode {
+  API_ONLY
+  BROWSER_ONLY
+  HYBRID
+}
+
 model AdminUser {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  managedAccounts ManagedAccount[]
+}
+
+model ManagedAccount {
+  id                   String                @id @default(uuid())
+  xHandle              String                @unique
+  displayName          String?
+  category             String
+  status               ManagedAccountStatus  @default(ACTIVE)
+  connectionMode       AccountConnectionMode
+  goalsSummary         String?
+  notes                String?
+  createdByAdminUserId String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  archivedAt           DateTime?
+  createdByAdminUser   AdminUser             @relation(fields: [createdByAdminUserId], references: [id])
+
+  @@index([status])
+  @@index([category])
 }
 
 model Creator {
