@@ -7,9 +7,11 @@ import {
 } from './managed-account.constants';
 import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
 import {
+  ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN_API_MESSAGE,
   ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
   DUPLICATE_HANDLE_API_MESSAGE,
   MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
+  AccountArchiveBlockedByActiveRunException,
   AccountAlreadyArchivedException,
   DuplicateManagedAccountHandleException,
   ManagedAccountNotFoundException,
@@ -263,6 +265,136 @@ describe('ManagedAccountsService', () => {
         updatedAt: true,
       },
     });
+  });
+
+  it('archives a managed account by setting status and archivedAt when no active run exists', async () => {
+    const createdAt = new Date('2026-03-01T10:00:00.000Z');
+    const currentUpdatedAt = new Date('2026-03-08T10:00:00.000Z');
+    const archivedAt = new Date('2026-03-08T12:00:00.000Z');
+
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt: null,
+      createdAt,
+      updatedAt: currentUpdatedAt,
+      researchRuns: [],
+    });
+    prisma.managedAccount.update.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt,
+      createdAt,
+      updatedAt: archivedAt,
+    });
+
+    await expect(service.archiveAccount('account-123')).resolves.toEqual({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt,
+      createdAt,
+      updatedAt: archivedAt,
+    });
+
+    expect(prisma.managedAccount.update).toHaveBeenCalledWith({
+      where: { id: 'account-123' },
+      data: {
+        status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+        archivedAt: expect.any(Date),
+      },
+      select: {
+        id: true,
+        xHandle: true,
+        displayName: true,
+        category: true,
+        status: true,
+        connectionMode: true,
+        goalsSummary: true,
+        notes: true,
+        archivedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+
+  it('blocks archive when a queued or running research run exists', async () => {
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: null,
+      notes: null,
+      archivedAt: null,
+      createdAt: new Date('2026-03-01T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-08T10:00:00.000Z'),
+      researchRuns: [
+        {
+          id: 'run-queued',
+          status: 'QUEUED',
+        },
+      ],
+    });
+
+    const archiveRequest = service.archiveAccount('account-123');
+
+    await expect(archiveRequest).rejects.toThrow(
+      AccountArchiveBlockedByActiveRunException,
+    );
+    await expect(archiveRequest).rejects.toMatchObject({
+      code: API_ERROR_CODES.ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN,
+      message: ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN_API_MESSAGE,
+    });
+
+    expect(prisma.managedAccount.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate archive attempts for already archived accounts', async () => {
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: null,
+      notes: null,
+      archivedAt: new Date('2026-03-08T10:00:00.000Z'),
+      createdAt: new Date('2026-03-01T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-08T10:00:00.000Z'),
+      researchRuns: [],
+    });
+
+    const archiveRequest = service.archiveAccount('account-123');
+
+    await expect(archiveRequest).rejects.toThrow(AccountAlreadyArchivedException);
+    await expect(archiveRequest).rejects.toMatchObject({
+      code: API_ERROR_CODES.ACCOUNT_ALREADY_ARCHIVED,
+      message: ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
+    });
+
+    expect(prisma.managedAccount.update).not.toHaveBeenCalled();
   });
 
   it('returns the existing record without updating when the patch body is empty', async () => {

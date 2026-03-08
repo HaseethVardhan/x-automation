@@ -49,6 +49,11 @@ export class ManagedAccountsController {
     );
   }
 
+  @Post(':accountId/archive')
+  archive(@Param() params: ManagedAccountParamsDto) {
+    return this.managedAccountsService.archiveAccount(params.accountId);
+  }
+
   @Post()
   create(
     @Body() createManagedAccountDto: CreateManagedAccountDto,

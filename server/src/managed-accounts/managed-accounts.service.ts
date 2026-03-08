@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildPaginationMeta, type PaginationMeta } from '../shared/pagination/page-query.dto';
+import { findBlockingActiveResearchRun } from '../shared/research/research-run-policy';
 import {
 	MANAGED_ACCOUNT_STATUS,
 	type ManagedAccountConnectionMode,
@@ -12,6 +13,7 @@ import { CreateManagedAccountDto } from './dto/create-managed-account.dto';
 import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
 import { UpdateManagedAccountDto } from './dto/update-managed-account.dto';
 import {
+	AccountArchiveBlockedByActiveRunException,
 	AccountAlreadyArchivedException,
 	DuplicateManagedAccountHandleException,
 	ManagedAccountNotFoundException,
@@ -20,6 +22,36 @@ import {
 @Injectable()
 export class ManagedAccountsService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async archiveAccount(accountId: string): Promise<ManagedAccountResponse> {
+		const account = await this.prisma.managedAccount.findUnique({
+			where: { id: accountId },
+			select: MANAGED_ACCOUNT_ARCHIVE_SELECT,
+		});
+
+		if (!account) {
+			throw new ManagedAccountNotFoundException(accountId);
+		}
+
+		if (account.status === MANAGED_ACCOUNT_STATUS.ARCHIVED) {
+			throw new AccountAlreadyArchivedException(accountId);
+		}
+
+		const blockingRun = findBlockingActiveResearchRun(account.researchRuns);
+
+		if (blockingRun) {
+			throw new AccountArchiveBlockedByActiveRunException(blockingRun);
+		}
+
+		return this.prisma.managedAccount.update({
+			where: { id: accountId },
+			data: {
+				status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+				archivedAt: new Date(),
+			},
+			select: MANAGED_ACCOUNT_RESPONSE_SELECT,
+		});
+	}
 
 	async updateAccount(
 		accountId: string,
@@ -278,6 +310,25 @@ const MANAGED_ACCOUNT_DETAIL_SELECT = {
 			errorCount: true,
 			createdAt: true,
 			completedAt: true,
+		},
+	},
+} satisfies Prisma.ManagedAccountSelect;
+
+const MANAGED_ACCOUNT_ARCHIVE_SELECT = {
+	...MANAGED_ACCOUNT_RESPONSE_SELECT,
+	researchRuns: {
+		where: {
+			status: {
+				in: ['QUEUED', 'RUNNING'],
+			},
+		},
+		orderBy: {
+			createdAt: 'desc',
+		},
+		take: 1,
+		select: {
+			id: true,
+			status: true,
 		},
 	},
 } satisfies Prisma.ManagedAccountSelect;

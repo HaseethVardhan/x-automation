@@ -16,9 +16,11 @@ import {
 } from './managed-account.constants';
 import { ManagedAccountsController } from './managed-accounts.controller';
 import {
+  ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN_API_MESSAGE,
   ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
   DUPLICATE_HANDLE_API_MESSAGE,
   MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
+  AccountArchiveBlockedByActiveRunException,
   AccountAlreadyArchivedException,
   DuplicateManagedAccountHandleException,
   ManagedAccountNotFoundException,
@@ -26,6 +28,7 @@ import {
 import { ManagedAccountsService } from './managed-accounts.service';
 
 const managedAccountsService = {
+  archiveAccount: jest.fn(),
   getAccountDetail: jest.fn(),
   listAccounts: jest.fn(),
   createAccount: jest.fn(),
@@ -255,6 +258,129 @@ describe('ManagedAccountsController', () => {
           status: MANAGED_ACCOUNT_STATUS.PAUSED,
           goalsSummary: 'New goal',
           notes: null,
+        });
+      });
+
+    await app.close();
+  });
+
+  it('archives a managed account through the shared success envelope', async () => {
+    const createdAt = new Date('2026-03-01T10:00:00.000Z');
+    const archivedAt = new Date('2026-03-08T12:00:00.000Z');
+    const app = await createApp();
+
+    managedAccountsService.archiveAccount.mockResolvedValue({
+      id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt,
+      createdAt,
+      updatedAt: archivedAt,
+    });
+
+    await request(getHttpServer(app))
+      .post('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a/archive')
+      .expect(201)
+      .expect((response: SupertestResponse) => {
+        const body = getSuccessBody(response);
+
+        expect(managedAccountsService.archiveAccount).toHaveBeenCalledWith(
+          '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+        );
+        expect(body.success).toBe(true);
+        expect(body.data).toMatchObject({
+          id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+          archivedAt: archivedAt.toISOString(),
+        });
+      });
+
+    await app.close();
+  });
+
+  it('validates accountId params for the archive endpoint', async () => {
+    const app = await createApp();
+
+    await request(getHttpServer(app))
+      .post('/managed-accounts/not-a-uuid/archive')
+      .expect(400)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+        const details = getValidationDetails(body);
+
+        expect(body.error.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(details).toEqual(
+          expect.arrayContaining([
+            {
+              field: 'accountId',
+              errors: expect.arrayContaining(['accountId must be a UUID']),
+            },
+          ]),
+        );
+      });
+
+    expect(managedAccountsService.archiveAccount).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('surfaces duplicate archive conflicts through the shared error envelope', async () => {
+    const app = await createApp();
+
+    managedAccountsService.archiveAccount.mockRejectedValue(
+      new AccountAlreadyArchivedException(
+        '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      ),
+    );
+
+    await request(getHttpServer(app))
+      .post('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a/archive')
+      .expect(409)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+
+        expect(body.success).toBe(false);
+        expect(body.error).toEqual({
+          code: API_ERROR_CODES.ACCOUNT_ALREADY_ARCHIVED,
+          message: ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
+          details: {
+            accountId: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          },
+        });
+      });
+
+    await app.close();
+  });
+
+  it('surfaces active-run archive conflicts through the shared error envelope', async () => {
+    const app = await createApp();
+
+    managedAccountsService.archiveAccount.mockRejectedValue(
+      new AccountArchiveBlockedByActiveRunException({
+        id: 'run-queued',
+        status: 'QUEUED',
+      }),
+    );
+
+    await request(getHttpServer(app))
+      .post('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a/archive')
+      .expect(409)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+
+        expect(body.success).toBe(false);
+        expect(body.error).toEqual({
+          code: API_ERROR_CODES.ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN,
+          message: ACCOUNT_ARCHIVE_BLOCKED_BY_ACTIVE_RUN_API_MESSAGE,
+          details: {
+            blockingRunId: 'run-queued',
+            blockingRunStatus: 'QUEUED',
+          },
         });
       });
 
