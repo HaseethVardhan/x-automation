@@ -1,74 +1,38 @@
-import { useEffect, useState } from 'react'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
 import { LoadingState } from '../shared/components/LoadingState'
+import { useApiQuery } from '../shared/hooks/useApiQuery'
 import { apiClient } from '../shared/services/api-client'
 
 export function HomePage() {
-  const [welcomeMessage, setWelcomeMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
+  const dashboardQuery = useApiQuery({
+    queryFn: async () => {
+      const response = await apiClient.get<string>('/')
+      return response.data
+    },
+  })
 
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadDashboard() {
-      setIsLoading(true)
-      setErrorMessage('')
-
-      try {
-        const response = await apiClient.get<string>('/')
-
-        if (!isMounted) {
-          return
-        }
-
-        setWelcomeMessage(response.data)
-      } catch (error) {
-        if (!isMounted) {
-          return
-        }
-
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : 'The dashboard could not be loaded.',
-        )
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void loadDashboard()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  if (isLoading) {
+  if (dashboardQuery.isLoading) {
     return (
       <LoadingState
         title="Loading workspace"
-        message="Fetching the authenticated dashboard with the shared API client."
+        message="Fetching the authenticated dashboard with the shared query hook and API client."
       />
     )
   }
 
-  if (errorMessage) {
+  if (dashboardQuery.error) {
     return (
       <ErrorState
         title="Dashboard unavailable"
-        message={errorMessage}
+        message={dashboardQuery.error.message}
         actionLabel="Retry"
-        onAction={() => window.location.reload()}
+        onAction={() => void dashboardQuery.refetch()}
       />
     )
   }
 
-  if (!welcomeMessage) {
+  if (!dashboardQuery.data) {
     return (
       <EmptyState
         title="No dashboard data yet"
@@ -81,7 +45,7 @@ export function HomePage() {
     <section className="dashboard-panel">
       <div className="eyebrow">Overview</div>
       <h1>Home</h1>
-      <p className="dashboard-message">{welcomeMessage}</p>
+      <p className="dashboard-message">{dashboardQuery.data}</p>
 
       <div className="dashboard-grid">
         <article className="dashboard-card">
@@ -95,8 +59,8 @@ export function HomePage() {
         <article className="dashboard-card">
           <h2>API client convention</h2>
           <p>
-            Authenticated requests flow through a single typed client that attaches
-            the bearer token, request id, and normalized error handling.
+            Authenticated requests flow through a single typed client plus a shared
+            query hook for loading, refresh, and normalized error state.
           </p>
         </article>
 

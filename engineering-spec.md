@@ -72,8 +72,10 @@ Owns security and product audit logging.
 3. Auth token persistence remains in local storage for v1, with helper functions isolated in `client/src/services/auth.ts`.
 4. Authenticated routes render inside a shared layout under `client/src/layouts/` and use nested routes so navigation chrome, logout actions, and page spacing stay consistent.
 5. Reusable loading, error, and empty states live under `client/src/shared/components/` and should be used before page-specific fallback markup is introduced.
-6. Future run-progress screens use the shared polling hook under `client/src/shared/hooks/`, with an immediate leading fetch, a default 10-second interval, automatic pause while the document is hidden, and explicit stop conditions for terminal run states.
-7. Shared API failures expose stable error codes from the backend envelope so views can branch on `AUTH_INVALID_CREDENTIALS`, `VALIDATION_FAILED`, and later domain-specific codes without duplicating axios handling.
+6. Standard page-level API fetching uses the shared `useApiQuery` hook under `client/src/shared/hooks/`, built on top of the shared API client with explicit loading, refresh, retry, and normalized error behavior.
+7. Future run-progress screens use the shared polling hook under `client/src/shared/hooks/`, with an immediate leading fetch, a default 10-second interval, automatic pause while the document is hidden, and explicit stop conditions for terminal run states.
+8. Shared API failures expose stable error codes from the backend envelope so views can branch on `AUTH_INVALID_CREDENTIALS`, `VALIDATION_FAILED`, and later domain-specific codes without duplicating axios handling.
+9. No additional client-state or data-fetching dependency is approved for v1; the project-standard pattern is `apiClient` plus `useApiQuery` for page reads and explicit local state for form submissions and mutations.
 
 ### 2.3.3 Shared backend infrastructure baseline
 
