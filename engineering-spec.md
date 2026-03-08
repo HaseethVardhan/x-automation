@@ -53,6 +53,18 @@ Owns draft review decisions and edited outputs.
 11. audit
 Owns security and product audit logging.
 
+### 2.3.1 Shared backend conventions
+
+1. Every feature module lives under `server/src/<feature-name>/` and keeps its primary Nest files at the module root: `<feature>.module.ts`, `<feature>.service.ts`, and controller files when the module exposes HTTP endpoints.
+2. Request and response DTOs live under `server/src/<feature-name>/dto/`.
+3. Feature-specific guards, strategies, adapters, and policies stay inside their feature module folder. Cross-cutting infrastructure that is reused across modules lives under `server/src/shared/`.
+4. Successful HTTP responses use the shared envelope `{ success: true, requestId, data, meta? }`.
+5. Error HTTP responses use the shared envelope `{ success: false, requestId, error: { code, message, details? } }`.
+6. Shared error codes are stable, uppercase identifiers intended for client branching and audit review. Initial v1 taxonomy includes `VALIDATION_FAILED`, `AUTH_INVALID_CREDENTIALS`, `AUTH_UNAUTHORIZED`, `AUTH_FORBIDDEN`, `RESOURCE_NOT_FOUND`, `RESOURCE_CONFLICT`, `BAD_REQUEST`, `RATE_LIMITED`, and `INTERNAL_ERROR`.
+7. Pagination query DTOs use shared validation defaults with `page`, `pageSize`, and a response `meta.pagination` object containing `page`, `pageSize`, `totalItems`, and `totalPages`.
+8. Every HTTP request propagates an `x-request-id` header. Incoming values are preserved when supplied by the caller; otherwise the server generates one and echoes it in the response.
+9. Global validation uses NestJS `ValidationPipe` with transformation enabled, whitelist enforcement enabled, non-whitelisted fields rejected, and validation failures mapped into the shared error envelope.
+
 ### 2.4 Recommended infrastructure components
 
 1. PostgreSQL for source-of-truth product state.
@@ -774,10 +786,21 @@ Update competitor metadata or status.
 Purpose:
 List pending and historical suggestions.
 
+Rules:
+1. Suggestions are generated only during research runs.
+2. There is no manual refresh endpoint in v1.
+3. Pending suggestions expire 30 days after creation if they remain undecided.
+4. Rejected suggestions do not resurface automatically for the same managed account and handle in v1.
+5. Expired suggestions may reappear only in a later research run when fresh evidence supports them.
+
 #### POST /managed-accounts/:accountId/competitor-suggestions/:suggestionId/accept
 
 Purpose:
 Convert a suggestion into an active competitor.
+
+Acceptance behavior:
+1. Acceptance creates the active competitor immediately in the same operation.
+2. The suggestion is marked ACCEPTED and retains provenance for audit and quality analysis.
 
 Errors:
 1. SUGGESTION_NOT_FOUND
@@ -787,6 +810,10 @@ Errors:
 
 Purpose:
 Reject a suggestion.
+
+Rejection behavior:
+1. Rejection marks the suggestion REJECTED immediately.
+2. A rejected suggestion is retained for audit and does not reappear automatically in v1.
 
 ### 4.7 Research run endpoints
 
@@ -808,6 +835,11 @@ Request:
 }
 ```
 
+Concurrency rule:
+1. A new run may be created only when the managed account has no existing run in QUEUED or RUNNING status.
+2. Operators may cancel a queued or running run and then create a new run.
+3. Superseding or overriding an existing active run within the create-run request is not supported in v1.
+
 Response:
 
 ```json
@@ -827,6 +859,29 @@ Errors:
 1. MANAGED_ACCOUNT_NOT_FOUND
 2. ACCOUNT_NOT_READY
 3. RUN_ALREADY_ACTIVE
+
+RUN_ALREADY_ACTIVE behavior:
+1. HTTP status: 409 Conflict.
+2. Error payload:
+
+```json
+{
+  "data": null,
+  "meta": {},
+  "error": {
+    "code": "RUN_ALREADY_ACTIVE",
+    "message": "A queued or running research run already exists for this managed account. Cancel it before starting another run.",
+    "details": {
+      "blockingRunId": "run_uuid",
+      "blockingRunStatus": "RUNNING"
+    }
+  }
+}
+```
+
+Client behavior:
+1. UI copy for blocked run creation should read: "A research run is already queued or running for this account. Cancel the active run before starting another."
+2. The UI should direct the operator to the blocking run detail or offer a cancel action when the current view supports it.
 
 #### GET /managed-accounts/:accountId/runs
 
@@ -872,6 +927,8 @@ Return ranked topic candidates.
 
 Purpose:
 Cancel a queued or active run.
+
+Successful cancellation clears the active-run block for later rerun requests.
 
 Errors:
 1. RUN_NOT_FOUND
@@ -1155,7 +1212,9 @@ Artifacts persisted:
 Scoring guidance:
 1. overallScore = 0.35 * creatorFitScore + 0.20 * trendMomentumScore + 0.25 * noveltyScore + 0.15 * audienceFitScore + 0.05 * (1 - policyRiskScore).
 2. Any topic with policyRiskScore >= 0.70 is excluded before ranking.
-3. Weights should still be configurable in server config, but the above values are the approved v1 defaults.
+3. Weights are stored in server config only in v1, with the above values as the approved defaults.
+4. Weights are global in v1 and are not category-specific.
+5. No additional minimum overall-score survival threshold is applied in v1 beyond the hard policy-risk exclusion and normal ranking.
 
 Retry behavior:
 1. Retry once for transient scoring service failures.
@@ -1265,6 +1324,10 @@ Recommended progress weights:
 ### 6.1 Provider abstraction rule
 
 All external dependencies should be wrapped in provider interfaces. Core domain services should never depend directly on a concrete API or browser automation library.
+
+Bootstrap strategy:
+1. The initial abstraction may ship with one real provider implementation and stub implementations for other approved providers until each adapter is completed.
+2. The approved provider set is still fixed to Google Trends, first-party curated RSS and news aggregation, and GDELT enrichment.
 
 ### 6.2 X source adapter contract
 
@@ -1417,12 +1480,16 @@ The client should move from a standalone login helper to a shared authenticated 
 2. Store encryption key version in the row.
 3. Keep decrypted credentials in memory only for the duration of the provider call.
 4. Never expose raw credential payloads in logs, error messages, or API responses.
+5. Production credential storage uses envelope encryption with a per-record AES-256-GCM data key wrapped by a KMS or Vault-managed wrapping key.
+6. Environment-managed master-key fallback is allowed only for local development.
+7. Wrapped-key rotation should use versioned wrapping keys, forward writes on the new version, controlled re-wrap of existing records, and retirement of old versions only after verification.
 
 ### 8.2 Minimal access model
 
 1. All product APIs require the authenticated JWT session.
 2. V1 does not introduce RBAC, permission tiers, or account-state workflows.
 3. Sensitive operations rely on the existing authenticated session plus audit logging.
+4. Credential create and revoke actions are restricted to the authenticated owner admin in v1.
 
 ### 8.3 Audit coverage
 
@@ -1439,6 +1506,8 @@ Audit events must be written for:
 1. Do not store more browser-session material than required.
 2. Add retentionUntil on snapshots that include sensitive provider payloads.
 3. Prefer normalized content artifacts over unbounded raw dumps where practical.
+4. Browser automation is limited to passive session validation and read-only fetch behavior for approved managed accounts.
+5. Browser automation may not create posts, schedule content, mutate account settings, or run broader account-health workflows in v1.
 
 ## 9. Observability
 
@@ -1536,11 +1605,13 @@ Use deterministic fixtures for:
 The following decisions are now locked for v1 and should be treated as implementation defaults rather than open questions:
 1. Creator history uses the hybrid 180-day and 120-post policy defined in section 2.6, and that collection policy is global-only in v1.
 2. Only one active run is allowed per managed account, and queued plus running states both count as active.
-3. Competitor suggestions are computed only during research runs.
-4. Topic scoring uses the approved v1 weighted formula and policy-risk hard gate defined in section 2.6.
+3. Competitor suggestions are computed only during research runs, accepted suggestions become active immediately, pending suggestions expire after 30 days, rejected suggestions do not resurface automatically in v1, and expired suggestions may reappear only in a later run with fresh evidence.
+4. Topic scoring uses the approved v1 weighted formula and policy-risk hard gate defined in section 2.6, with config-only global weights and no additional minimum score threshold in v1.
 5. The first-release external provider bundle is Google Trends, a first-party curated RSS and news aggregation pipeline, and GDELT enrichment.
-6. Credential storage uses envelope encryption with KMS or Vault-managed wrapping keys, with environment-key fallback allowed only for local development.
-7. Browser automation remains strictly read-only.
+6. Provider integrations may bootstrap with one real implementation plus stubs behind provider interfaces until each approved adapter is completed.
+7. Credential storage uses envelope encryption with KMS or Vault-managed wrapping keys, with environment-key fallback allowed only for local development, and wrapped-key rotation must remain versioned and auditable.
+8. Only the authenticated owner admin may create or revoke credentials in v1.
+9. Browser automation remains strictly read-only and limited to passive validation plus read fetches.
 
 ## 13. Recommended File and Module Targets
 

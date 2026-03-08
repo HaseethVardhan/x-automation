@@ -1,7 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { ApiException } from '../shared/errors/api.exception';
+import { API_ERROR_CODES } from '../shared/errors/error-codes';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
@@ -17,7 +19,11 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new ApiException({
+        status: HttpStatus.UNAUTHORIZED,
+        code: API_ERROR_CODES.AUTH_INVALID_CREDENTIALS,
+        message: 'Invalid email or password',
+      });
     }
 
     const passwordMatches = await bcrypt.compare(
@@ -26,7 +32,11 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new ApiException({
+        status: HttpStatus.UNAUTHORIZED,
+        code: API_ERROR_CODES.AUTH_INVALID_CREDENTIALS,
+        message: 'Invalid email or password',
+      });
     }
 
     const accessToken = await this.jwtService.signAsync({

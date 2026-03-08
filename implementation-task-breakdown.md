@@ -103,9 +103,9 @@ Tasks:
 Tasks:
 1. Restrict competitor-suggestion generation to research runs only.
 2. Remove any plan for a dedicated manual “refresh suggestions” endpoint in v1.
-3. Define whether accepted suggestions become active immediately after acceptance.
-4. Define whether rejected suggestions may reappear after expiration or future runs.
-5. Define retention and expiration rules for pending suggestions.
+3. Accepted suggestions become active immediately after acceptance in v1.
+4. Rejected suggestions do not reappear automatically in v1; expired suggestions may reappear only in a later research run when fresh evidence supports them.
+5. Pending suggestions expire 30 days after creation if still undecided.
 6. Update the competitor API contract in engineering-spec.md if needed.
 
 ### Story 0.4: Apply approved topic-scoring policy
@@ -113,31 +113,31 @@ Tasks:
 Tasks:
 1. List all current scoring dimensions from engineering-spec.md.
 2. Encode approved weights for creator fit, trend momentum, novelty, audience fit, and inverse policy risk.
-3. Define whether weights are stored in config, database, or both.
-4. Define whether weights are global or category-specific in v1.
+3. Weights are stored in server config only in v1.
+4. Weights are global and not category-specific in v1.
 5. Encode the policy-risk hard exclusion threshold of 0.70.
-6. Define the minimum score threshold for topic survival if an additional threshold is required.
+6. No additional minimum score threshold applies in v1 beyond the hard policy-risk exclusion and ranking.
 7. Update engineering-spec.md scoring guidance section if needed.
 
 ### Story 0.5: Apply approved provider and credential-security model
 
 Tasks:
 1. Implement the approved external provider bundle: Google Trends, first-party curated RSS and news aggregation, and GDELT enrichment.
-2. Decide whether a provider abstraction will ship with one real provider and one stub provider initially.
+2. Provider abstraction ships with one real provider and stub implementations for the remaining approved providers initially.
 3. Encode envelope encryption as the production credential-security model.
-4. Define key rotation procedure for wrapped per-record keys.
-5. Confirm who is allowed to create and revoke credentials.
+4. Wrapped per-record key rotation uses versioned wrapping keys, forward writes, controlled re-wrap, and verified retirement of prior keys.
+5. Only the authenticated owner admin is allowed to create and revoke credentials in v1.
 6. Restrict browser automation to passive read-only validation and fetch behavior.
 7. Update engineering-spec.md where the approved choices differ from placeholders.
 
 ### Story 0.6: Create delivery governance baseline
 
 Tasks:
-1. Define epic ownership expectations across backend, frontend, infrastructure, and QA.
-2. Define a story status workflow.
-3. Define a blocking-issue escalation path.
+1. Define epic ownership expectations across backend, frontend, infrastructure, and QA in delivery-governance.md.
+2. Define a story status workflow in delivery-governance.md.
+3. Define a blocking-issue escalation path in delivery-governance.md.
 4. Define the review order: schema first, contracts second, UI third, integration fourth.
-5. Define the documentation update rule for each completed story.
+5. Define the documentation update rule for each completed story in delivery-governance.md.
 
 ## Epic 1: Foundation and Shared Platform Hardening
 

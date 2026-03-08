@@ -12,8 +12,14 @@ type LoginResponse = {
   accessToken: string
 }
 
+type ApiSuccessResponse<T> = {
+  success: true
+  requestId: string
+  data: T
+}
+
 export async function login(payload: LoginPayload): Promise<void> {
-  const response = await axios.post<LoginResponse>(
+  const response = await axios.post<ApiSuccessResponse<LoginResponse>>(
     `${API_BASE_URL}/auth/login`,
     payload,
     {
@@ -23,7 +29,7 @@ export async function login(payload: LoginPayload): Promise<void> {
     },
   )
 
-  localStorage.setItem(TOKEN_KEY, response.data.accessToken)
+  localStorage.setItem(TOKEN_KEY, response.data.data.accessToken)
 }
 
 export function hasAuthToken(): boolean {
