@@ -91,6 +91,52 @@ enum StageStatus {
   SKIPPED
 }
 
+enum SourceType {
+  CREATOR_POSTS
+  COMPETITOR_POSTS
+  X_TRENDS
+  EXTERNAL_NEWS
+  EXTERNAL_WEB
+}
+
+enum TopicCandidateStatus {
+  ACTIVE
+  DROPPED
+  SELECTED
+}
+
+enum DraftVariantStatus {
+  GENERATED
+  FLAGGED
+  APPROVED
+  REJECTED
+  EDITED
+}
+
+enum ReviewDecisionType {
+  APPROVED
+  REJECTED
+  NEEDS_RERUN
+}
+
+enum AuditEventType {
+  LOGIN
+  LOGOUT
+  CREDENTIAL_CREATED
+  CREDENTIAL_REVOKED
+  MANAGED_ACCOUNT_CREATED
+  MANAGED_ACCOUNT_UPDATED
+  COMPETITOR_ADDED
+  SUGGESTION_ACCEPTED
+  RUN_CREATED
+  RUN_STARTED
+  RUN_STAGE_COMPLETED
+  RUN_FAILED
+  DRAFT_GENERATED
+  DRAFT_APPROVED
+  DRAFT_REJECTED
+}
+
 model AdminUser {
   id                        String                    @id @default(uuid())
   email                     String                    @unique
@@ -101,6 +147,8 @@ model AdminUser {
   managedAccountCredentials ManagedAccountCredential[]
   createdCompetitors        Competitor[]
   requestedResearchRuns     ResearchRun[]
+  reviewDecisions           ReviewDecision[]
+  auditEvents               AuditEvent[]
 }
 
 model ManagedAccount {
@@ -122,6 +170,7 @@ model ManagedAccount {
   competitors          Competitor[]
   competitorSuggestions CompetitorSuggestion[]
   researchRuns         ResearchRun[]
+  auditEvents          AuditEvent[]
 
   @@index([status])
   @@index([category])
@@ -146,6 +195,12 @@ model ResearchRun {
   managedAccount         ManagedAccount         @relation(fields: [managedAccountId], references: [id])
   requestedByAdminUser   AdminUser              @relation(fields: [requestedByAdminUserId], references: [id])
   stages                 ResearchRunStage[]
+  sourceSnapshots        SourceSnapshot[]
+  creatorProfileArtifact CreatorProfileArtifact?
+  competitorInsightArtifact CompetitorInsightArtifact?
+  topicCandidates        TopicCandidate[]
+  draftVariants          DraftVariant[]
+  auditEvents            AuditEvent[]
   generatedCompetitorSuggestions CompetitorSuggestion[]
 
   @@index([managedAccountId, createdAt(sort: Desc)])
@@ -173,6 +228,135 @@ model ResearchRunStage {
   @@unique([researchRunId, stage, attemptNumber])
   @@index([researchRunId, stage])
   @@index([status])
+}
+
+model SourceSnapshot {
+  id                String      @id @default(uuid())
+  researchRunId     String
+  sourceType        SourceType
+  sourceKey         String
+  fetchedAt         DateTime    @default(now())
+  itemCount         Int         @default(0)
+  rawPayload        Json
+  normalizedPayload Json?
+  retentionUntil    DateTime?
+  createdAt         DateTime    @default(now())
+  researchRun       ResearchRun @relation(fields: [researchRunId], references: [id])
+
+  @@index([researchRunId, sourceType])
+  @@index([sourceKey])
+}
+
+model CreatorProfileArtifact {
+  id                        String      @id @default(uuid())
+  researchRunId             String      @unique
+  accountSnapshotWindowDays Int
+  analyzedPostCount         Int
+  styleProfile              Json
+  topicProfile              Json
+  engagementProfile         Json?
+  exclusionsProfile         Json?
+  createdAt                 DateTime    @default(now())
+  researchRun               ResearchRun @relation(fields: [researchRunId], references: [id])
+}
+
+model CompetitorInsightArtifact {
+  id                    String      @id @default(uuid())
+  researchRunId         String      @unique
+  competitorCount       Int
+  postingPatternSummary Json
+  topicPatternSummary   Json
+  hookPatternSummary    Json
+  gapOpportunities      Json?
+  createdAt             DateTime    @default(now())
+  researchRun           ResearchRun @relation(fields: [researchRunId], references: [id])
+}
+
+model TopicCandidate {
+  id                 String               @id @default(uuid())
+  researchRunId      String
+  topicKey           String
+  title              String
+  description        String?
+  sourceMix          Json
+  creatorFitScore    Decimal              @db.Decimal(3, 2)
+  trendMomentumScore Decimal              @db.Decimal(3, 2)
+  noveltyScore       Decimal              @db.Decimal(3, 2)
+  audienceFitScore   Decimal              @db.Decimal(3, 2)
+  policyRiskScore    Decimal              @db.Decimal(3, 2)
+  overallScore       Decimal              @db.Decimal(3, 2)
+  rationale          Json
+  status             TopicCandidateStatus @default(ACTIVE)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  researchRun        ResearchRun          @relation(fields: [researchRunId], references: [id])
+  draftVariants      DraftVariant[]
+
+  @@unique([researchRunId, topicKey])
+  @@index([researchRunId, overallScore(sort: Desc)])
+  @@index([status])
+}
+
+model DraftVariant {
+  id                      String             @id @default(uuid())
+  researchRunId           String
+  topicCandidateId        String
+  variantNumber           Int
+  content                 String
+  generationPromptVersion String
+  modelName               String
+  styleFitScore           Decimal?           @db.Decimal(3, 2)
+  noveltyScore            Decimal?           @db.Decimal(3, 2)
+  duplicationRiskScore    Decimal?           @db.Decimal(3, 2)
+  policyRiskScore         Decimal?           @db.Decimal(3, 2)
+  evidenceSummary         Json
+  validationSummary       Json?
+  status                  DraftVariantStatus @default(GENERATED)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  researchRun             ResearchRun        @relation(fields: [researchRunId], references: [id])
+  topicCandidate          TopicCandidate     @relation(fields: [topicCandidateId], references: [id])
+  reviewDecision          ReviewDecision?
+
+  @@unique([researchRunId, topicCandidateId, variantNumber])
+  @@index([researchRunId])
+  @@index([status])
+}
+
+model ReviewDecision {
+  id                   String             @id @default(uuid())
+  draftVariantId       String             @unique
+  decidedByAdminUserId String
+  decision             ReviewDecisionType
+  editedContent        String?
+  editDistance         Int?
+  notes                String?
+  createdAt            DateTime           @default(now())
+  draftVariant         DraftVariant       @relation(fields: [draftVariantId], references: [id])
+  decidedByAdminUser   AdminUser          @relation(fields: [decidedByAdminUserId], references: [id])
+
+  @@index([decision])
+}
+
+model AuditEvent {
+  id               String         @id @default(uuid())
+  actorAdminUserId String?
+  managedAccountId String?
+  researchRunId    String?
+  eventType        AuditEventType
+  entityType       String
+  entityId         String
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+  actorAdminUser   AdminUser?     @relation(fields: [actorAdminUserId], references: [id])
+  managedAccount   ManagedAccount? @relation(fields: [managedAccountId], references: [id])
+  researchRun      ResearchRun?   @relation(fields: [researchRunId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@index([eventType])
+  @@index([actorAdminUserId])
+  @@index([managedAccountId])
+  @@index([researchRunId])
 }
 
 model Competitor {
