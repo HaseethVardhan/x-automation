@@ -34,6 +34,24 @@ enum CredentialStatus {
   INVALID
 }
 
+enum CompetitorSource {
+  MANUAL
+  SUGGESTED_ACCEPTED
+}
+
+enum CompetitorStatus {
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
 model AdminUser {
   id                        String                    @id @default(uuid())
   email                     String                    @unique
@@ -42,6 +60,7 @@ model AdminUser {
   updatedAt                 DateTime                  @updatedAt
   managedAccounts           ManagedAccount[]
   managedAccountCredentials ManagedAccountCredential[]
+  createdCompetitors        Competitor[]
 }
 
 model ManagedAccount {
@@ -60,9 +79,52 @@ model ManagedAccount {
   createdByAdminUser   AdminUser                @relation(fields: [createdByAdminUserId], references: [id])
   preferenceProfile    AccountPreference?
   credentials          ManagedAccountCredential[]
+  competitors          Competitor[]
+  competitorSuggestions CompetitorSuggestion[]
 
   @@index([status])
   @@index([category])
+}
+
+model Competitor {
+  id                       String               @id @default(uuid())
+  managedAccountId         String
+  xHandle                  String
+  displayName              String?
+  source                   CompetitorSource
+  status                   CompetitorStatus     @default(ACTIVE)
+  acceptedFromSuggestionId String?              @unique
+  createdByAdminUserId     String?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  managedAccount           ManagedAccount       @relation(fields: [managedAccountId], references: [id])
+  acceptedFromSuggestion   CompetitorSuggestion? @relation("AcceptedCompetitorFromSuggestion", fields: [acceptedFromSuggestionId], references: [id])
+  createdByAdminUser       AdminUser?           @relation(fields: [createdByAdminUserId], references: [id])
+
+  @@unique([managedAccountId, xHandle])
+  @@index([xHandle])
+  @@index([status])
+}
+
+model CompetitorSuggestion {
+  id                 String               @id @default(uuid())
+  managedAccountId   String
+  xHandle            String
+  displayName        String?
+  suggestionReason   Json
+  confidenceScore    Decimal              @db.Decimal(3, 2)
+  status             SuggestionStatus     @default(PENDING)
+  generatedByRunId   String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  decidedAt          DateTime?
+  managedAccount     ManagedAccount       @relation(fields: [managedAccountId], references: [id])
+  acceptedCompetitor Competitor?          @relation("AcceptedCompetitorFromSuggestion")
+
+  @@unique([managedAccountId, xHandle, status])
+  @@index([xHandle])
+  @@index([status])
+  @@index([generatedByRunId])
 }
 
 model AccountPreference {
