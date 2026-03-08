@@ -1,1 +1,1 @@
-export {};
+export { CreateManagedAccountDto } from './create-managed-account.dto';
