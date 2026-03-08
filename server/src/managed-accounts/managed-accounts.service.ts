@@ -1,16 +1,43 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildPaginationMeta, type PaginationMeta } from '../shared/pagination/page-query.dto';
 import {
 	type ManagedAccountConnectionMode,
 	type ManagedAccountStatus,
 } from './managed-account.constants';
 import { CreateManagedAccountDto } from './dto/create-managed-account.dto';
+import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
 import { DuplicateManagedAccountHandleException } from './managed-accounts.errors';
 
 @Injectable()
 export class ManagedAccountsService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async listAccounts(
+		query: ListManagedAccountsQueryDto,
+	): Promise<ManagedAccountListResult> {
+		const where = buildManagedAccountListWhere(query);
+		const [items, totalItems] = await Promise.all([
+			this.prisma.managedAccount.findMany({
+				where,
+				skip: (query.page - 1) * query.pageSize,
+				take: query.pageSize,
+				orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+				select: MANAGED_ACCOUNT_RESPONSE_SELECT,
+			}),
+			this.prisma.managedAccount.count({ where }),
+		]);
+
+		return {
+			items,
+			pagination: buildPaginationMeta({
+				page: query.page,
+				pageSize: query.pageSize,
+				totalItems,
+			}),
+		};
+	}
 
 	async createAccount(
 		createManagedAccountDto: CreateManagedAccountDto,
@@ -82,6 +109,50 @@ export type ManagedAccountResponse = {
 	createdAt: Date;
 	updatedAt: Date;
 };
+
+export type ManagedAccountListResult = {
+	items: ManagedAccountResponse[];
+	pagination: PaginationMeta;
+};
+
+function buildManagedAccountListWhere(
+	query: ListManagedAccountsQueryDto,
+): Prisma.ManagedAccountWhereInput {
+	const where: Prisma.ManagedAccountWhereInput = {};
+
+	if (query.status) {
+		where.status = query.status;
+	}
+
+	if (query.category) {
+		where.category = query.category;
+	}
+
+	if (query.search) {
+		where.OR = [
+			{
+				xHandle: {
+					contains: query.search,
+					mode: 'insensitive',
+				},
+			},
+			{
+				displayName: {
+					contains: query.search,
+					mode: 'insensitive',
+				},
+			},
+			{
+				category: {
+					contains: query.search,
+					mode: 'insensitive',
+				},
+			},
+		];
+	}
+
+	return where;
+}
 
 function isDuplicateXHandleError(error: unknown): boolean {
 	return (

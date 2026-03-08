@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import type { CanActivate, ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
@@ -21,6 +22,7 @@ import {
 import { ManagedAccountsService } from './managed-accounts.service';
 
 const managedAccountsService = {
+  listAccounts: jest.fn(),
   createAccount: jest.fn(),
 };
 
@@ -56,6 +58,93 @@ class ManagedAccountsControllerTestModule {}
 describe('ManagedAccountsController', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('lists managed accounts inside the shared success envelope with pagination metadata', async () => {
+    const createdAt = new Date('2026-03-08T10:00:00.000Z');
+    const updatedAt = new Date('2026-03-08T10:00:00.000Z');
+    const app = await createApp();
+
+    managedAccountsService.listAccounts.mockResolvedValue({
+      items: [
+        {
+          id: 'account-123',
+          xHandle: 'creator_handle',
+          displayName: 'Creator Name',
+          category: 'startup',
+          status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+          connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+          goalsSummary: 'Grow reach with founder-led product content',
+          notes: null,
+          archivedAt: null,
+          createdAt,
+          updatedAt,
+        },
+      ],
+      pagination: {
+        page: 2,
+        pageSize: 5,
+        totalItems: 11,
+        totalPages: 3,
+      },
+    });
+
+    await request(getHttpServer(app))
+      .get('/managed-accounts?page=2&pageSize=5&status=ACTIVE&category=startup&search=creator')
+      .expect(200)
+      .expect((response: SupertestResponse) => {
+        const body = getSuccessBody(response);
+
+        expect(managedAccountsService.listAccounts).toHaveBeenCalledWith({
+          page: 2,
+          pageSize: 5,
+          status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+          category: 'startup',
+          search: 'creator',
+        });
+        expect(body.success).toBe(true);
+        expect(body.data).toHaveLength(1);
+        expect(body.meta?.pagination).toEqual({
+          page: 2,
+          pageSize: 5,
+          totalItems: 11,
+          totalPages: 3,
+        });
+      });
+
+    await app.close();
+  });
+
+  it('returns an empty managed account list with shared pagination metadata', async () => {
+    const app = await createApp();
+
+    managedAccountsService.listAccounts.mockResolvedValue({
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 0,
+        totalPages: 1,
+      },
+    });
+
+    await request(getHttpServer(app))
+      .get('/managed-accounts')
+      .expect(200)
+      .expect((response: SupertestResponse) => {
+        const body = getSuccessBody(response);
+
+        expect(body.success).toBe(true);
+        expect(body.data).toEqual([]);
+        expect(body.meta?.pagination).toEqual({
+          page: 1,
+          pageSize: 20,
+          totalItems: 0,
+          totalPages: 1,
+        });
+      });
+
+    await app.close();
   });
 
   it('creates a managed account with a normalized handle and authenticated admin id', async () => {
