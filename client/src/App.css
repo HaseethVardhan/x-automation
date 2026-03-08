@@ -1,0 +1,32 @@
+.page {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+}
+
+.card {
+	width: 100%;
+	max-width: 360px;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 1.25rem;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+
+input,
+button {
+	font: inherit;
+	padding: 0.6rem;
+}
+
+.error {
+	color: #dc2626;
+	margin: 0.2rem 0;
+}
