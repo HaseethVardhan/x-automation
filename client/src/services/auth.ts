@@ -13,14 +13,20 @@ type LoginPayload = {
 
 type LoginResponse = {
   accessToken: string
+  user: {
+    id: string
+    email: string
+  }
 }
 
-export async function login(payload: LoginPayload): Promise<void> {
+export async function login(payload: LoginPayload): Promise<LoginResponse['user']> {
   const response = await apiClient.post<LoginResponse>('/auth/login', payload, {
     requiresAuth: false,
   })
 
   setStoredAuthToken(response.data.accessToken)
+
+  return response.data.user
 }
 
 export function hasAuthToken(): boolean {

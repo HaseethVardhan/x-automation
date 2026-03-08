@@ -6,6 +6,14 @@ import { ApiException } from '../shared/errors/api.exception';
 import { API_ERROR_CODES } from '../shared/errors/error-codes';
 import { LoginDto } from './dto/login.dto';
 
+export type LoginResponse = {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+  };
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -13,7 +21,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<LoginResponse> {
     const user = await this.prisma.adminUser.findUnique({
       where: { email: loginDto.email },
     });
@@ -44,6 +52,12 @@ export class AuthService {
       email: user.email,
     });
 
-    return { accessToken };
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    };
   }
 }
