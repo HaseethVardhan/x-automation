@@ -1,7 +1,10 @@
-import axios from 'axios'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:6969'
-const TOKEN_KEY = 'accessToken'
+import {
+  clearStoredAuthToken,
+  getStoredAuthToken,
+  hasStoredAuthToken,
+  setStoredAuthToken,
+} from '../shared/services/auth-token-storage'
+import { ApiClientError, apiClient } from '../shared/services/api-client'
 
 type LoginPayload = {
   email: string
@@ -12,30 +15,33 @@ type LoginResponse = {
   accessToken: string
 }
 
-type ApiSuccessResponse<T> = {
-  success: true
-  requestId: string
-  data: T
-}
-
 export async function login(payload: LoginPayload): Promise<void> {
-  const response = await axios.post<ApiSuccessResponse<LoginResponse>>(
-    `${API_BASE_URL}/auth/login`,
-    payload,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    },
-  )
+  const response = await apiClient.post<LoginResponse>('/auth/login', payload, {
+    requiresAuth: false,
+  })
 
-  localStorage.setItem(TOKEN_KEY, response.data.data.accessToken)
+  setStoredAuthToken(response.data.accessToken)
 }
 
 export function hasAuthToken(): boolean {
-  return Boolean(localStorage.getItem(TOKEN_KEY))
+  return hasStoredAuthToken()
+}
+
+export function getAuthToken(): string | null {
+  return getStoredAuthToken()
 }
 
 export function clearAuthToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
+  clearStoredAuthToken()
+}
+
+export function getApiErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+): string {
+  if (error instanceof ApiClientError) {
+    return error.message
+  }
+
+  return fallbackMessage
 }

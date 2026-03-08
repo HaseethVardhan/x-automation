@@ -1,0 +1,35 @@
+:root {
+	font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+	line-height: 1.5;
+	font-weight: 400;
+	color: #13343b;
+	background: #f7f4ea;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	color-scheme: light;
+	--color-ink: #13343b;
+	--color-muted: #4e665f;
+	--color-accent: #c25b36;
+	--color-surface: #fffaf2;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100vh;
+	background: #f7f4ea;
+}
+
+a {
+	color: inherit;
+}
+
+#root {
+	min-height: 100vh;
+}

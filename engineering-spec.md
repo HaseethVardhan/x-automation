@@ -65,6 +65,16 @@ Owns security and product audit logging.
 8. Every HTTP request propagates an `x-request-id` header. Incoming values are preserved when supplied by the caller; otherwise the server generates one and echoes it in the response.
 9. Global validation uses NestJS `ValidationPipe` with transformation enabled, whitelist enforcement enabled, non-whitelisted fields rejected, and validation failures mapped into the shared error envelope.
 
+### 2.3.2 Shared frontend conventions
+
+1. The client keeps the existing React Router stack and does not add a separate state-management or data-fetching library in v1.
+2. All API calls go through a shared typed client under `client/src/shared/services/` that applies the base URL, bearer token, request id header, shared response-envelope parsing, and normalized application errors.
+3. Auth token persistence remains in local storage for v1, with helper functions isolated in `client/src/services/auth.ts`.
+4. Authenticated routes render inside a shared layout under `client/src/layouts/` and use nested routes so navigation chrome, logout actions, and page spacing stay consistent.
+5. Reusable loading, error, and empty states live under `client/src/shared/components/` and should be used before page-specific fallback markup is introduced.
+6. Future run-progress screens use the shared polling hook under `client/src/shared/hooks/`, with an immediate leading fetch, a default 10-second interval, automatic pause while the document is hidden, and explicit stop conditions for terminal run states.
+7. Shared API failures expose stable error codes from the backend envelope so views can branch on `AUTH_INVALID_CREDENTIALS`, `VALIDATION_FAILED`, and later domain-specific codes without duplicating axios handling.
+
 ### 2.4 Recommended infrastructure components
 
 1. PostgreSQL for source-of-truth product state.
