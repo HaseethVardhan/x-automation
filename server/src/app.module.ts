@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ManagedAccountsModule } from './managed-accounts/managed-accounts.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { appConfig } from './shared/config/app.config';
 import { validateEnvironment } from './shared/config/environment';
@@ -24,6 +25,7 @@ import { SharedQueueModule } from './shared/queue/queue.module';
     SharedQueueModule,
     PrismaModule,
     AuthModule,
+    ManagedAccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
