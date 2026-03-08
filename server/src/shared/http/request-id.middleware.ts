@@ -11,7 +11,11 @@ function normalizeRequestId(value: string | undefined): string | undefined {
 
 export function getRequestId(request: ApiRequest): string {
   const headerValue = request.header(REQUEST_ID_HEADER);
-  return normalizeRequestId(headerValue) ?? randomUUID();
+  return (
+    normalizeRequestId(headerValue) ??
+    normalizeRequestId(request.id) ??
+    randomUUID()
+  );
 }
 
 export function requestIdMiddleware(
@@ -20,6 +24,7 @@ export function requestIdMiddleware(
   next: NextFunction,
 ): void {
   const requestId = getRequestId(request);
+  request.id = requestId;
   request.requestId = requestId;
   response.setHeader(REQUEST_ID_HEADER, requestId);
   next();

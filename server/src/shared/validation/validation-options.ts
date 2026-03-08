@@ -1,4 +1,7 @@
-import { type ValidationError, type ValidationPipeOptions } from '@nestjs/common';
+import {
+  type ValidationError,
+  type ValidationPipeOptions,
+} from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { ApiException } from '../errors/api.exception';
 import { API_ERROR_CODES } from '../errors/error-codes';

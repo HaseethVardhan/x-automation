@@ -11,12 +11,13 @@ import { isApiResponsePayload } from './api-response';
 import type { ApiRequest } from './request-context';
 
 @Injectable()
-export class ApiResponseInterceptor
-  implements NestInterceptor<unknown, ApiSuccessResponse<unknown>>
-{
+export class ApiResponseInterceptor implements NestInterceptor<
+  unknown,
+  ApiSuccessResponse<unknown>
+> {
   intercept(
     context: ExecutionContext,
-    next: CallHandler,
+    next: CallHandler<unknown>,
   ): Observable<ApiSuccessResponse<unknown>> {
     const request = context.switchToHttp().getRequest<ApiRequest>();
     const requestId = request.requestId ?? 'unknown-request-id';

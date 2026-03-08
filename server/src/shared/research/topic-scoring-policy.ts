@@ -37,7 +37,9 @@ export function topicScoringWeightsTotal(): number {
   );
 }
 
-export function shouldExcludeTopicByPolicyRisk(policyRiskScore: number): boolean {
+export function shouldExcludeTopicByPolicyRisk(
+  policyRiskScore: number,
+): boolean {
   return policyRiskScore >= TOPIC_POLICY_RISK_EXCLUSION_THRESHOLD;
 }
 

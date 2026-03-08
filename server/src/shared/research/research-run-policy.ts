@@ -36,9 +36,7 @@ export const RUN_ALREADY_ACTIVE_API_MESSAGE =
 export const RUN_ALREADY_ACTIVE_UI_MESSAGE =
   'A research run is already queued or running for this account. Cancel the active run before starting another.';
 
-export function isActiveResearchRunStatus(
-  status: ResearchRunStatus,
-): boolean {
+export function isActiveResearchRunStatus(status: ResearchRunStatus): boolean {
   return ACTIVE_RESEARCH_RUN_STATUSES.includes(
     status as (typeof ACTIVE_RESEARCH_RUN_STATUSES)[number],
   );

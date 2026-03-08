@@ -15,14 +15,24 @@ describe('research run policy', () => {
     expect(isActiveResearchRunStatus(RESEARCH_RUN_STATUS.QUEUED)).toBe(true);
     expect(isActiveResearchRunStatus(RESEARCH_RUN_STATUS.RUNNING)).toBe(true);
     expect(isActiveResearchRunStatus(RESEARCH_RUN_STATUS.CANCELED)).toBe(false);
-    expect(isActiveResearchRunStatus(RESEARCH_RUN_STATUS.COMPLETED)).toBe(false);
+    expect(isActiveResearchRunStatus(RESEARCH_RUN_STATUS.COMPLETED)).toBe(
+      false,
+    );
   });
 
   it('allows cancel then rerun by making only queued and running cancelable', () => {
-    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.QUEUED)).toBe(true);
-    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.RUNNING)).toBe(true);
-    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.CANCELED)).toBe(false);
-    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.REVIEWED)).toBe(false);
+    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.QUEUED)).toBe(
+      true,
+    );
+    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.RUNNING)).toBe(
+      true,
+    );
+    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.CANCELED)).toBe(
+      false,
+    );
+    expect(isCancelableResearchRunStatus(RESEARCH_RUN_STATUS.REVIEWED)).toBe(
+      false,
+    );
   });
 
   it('finds the first active run that blocks a new run', () => {

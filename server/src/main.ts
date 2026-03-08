@@ -1,12 +1,22 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureHttpApp } from './shared/http/app-bootstrap';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  configureHttpApp(app, {
-    corsOrigin: process.env.ORIGIN,
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
   });
-  await app.listen(process.env.PORT ?? 6969);
+  app.useLogger(app.get(Logger));
+
+  const configService = app.get(ConfigService);
+
+  configureHttpApp(app, {
+    corsOrigin: configService.get<string>('ORIGIN') ?? '*',
+  });
+
+  await app.listen(configService.get<number>('PORT') ?? 6969);
 }
-bootstrap();
+
+void bootstrap();

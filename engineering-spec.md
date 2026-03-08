@@ -75,6 +75,14 @@ Owns security and product audit logging.
 6. Future run-progress screens use the shared polling hook under `client/src/shared/hooks/`, with an immediate leading fetch, a default 10-second interval, automatic pause while the document is hidden, and explicit stop conditions for terminal run states.
 7. Shared API failures expose stable error codes from the backend envelope so views can branch on `AUTH_INVALID_CREDENTIALS`, `VALIDATION_FAILED`, and later domain-specific codes without duplicating axios handling.
 
+### 2.3.3 Shared backend infrastructure baseline
+
+1. Shared backend configuration is validated at process start with Zod before Nest modules initialize.
+2. Redis connection settings are provided through `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_USERNAME`, `REDIS_PASSWORD`, and `REDIS_TLS_ENABLED`, with local-development defaults for host, port, and DB.
+3. BullMQ is registered globally through a shared queue module and uses the validated Redis config plus the `QUEUE_PREFIX` namespace.
+4. Structured HTTP logging uses `nestjs-pino` with JSON output, request-id propagation, redaction support, and configurable `LOG_LEVEL` and `LOG_REDACT_PATHS` environment values.
+5. Zod is the approved shared schema-validation helper for future model-output validation and other non-DTO runtime schema checks.
+
 ### 2.4 Recommended infrastructure components
 
 1. PostgreSQL for source-of-truth product state.

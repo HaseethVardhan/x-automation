@@ -18,7 +18,8 @@ export const CREDENTIAL_WRAPPING_KEY_PROVIDER = 'kms-or-vault' as const;
 
 export const LOCAL_DEVELOPMENT_KEY_FALLBACK_ALLOWED = true;
 
-export const LOCAL_DEVELOPMENT_KEY_FALLBACK_SCOPE = 'local-development-only' as const;
+export const LOCAL_DEVELOPMENT_KEY_FALLBACK_SCOPE =
+  'local-development-only' as const;
 
 export const CREDENTIAL_MUTATION_ACTOR =
   'authenticated-owner-admin-only' as const;

@@ -50,10 +50,14 @@ describe('competitor suggestion policy', () => {
     expect(COMPETITOR_SUGGESTION_EXPIRED_REAPPEARS_IN_FUTURE_RUNS).toBe(true);
     expect(COMPETITOR_SUGGESTION_EXPIRED_REAPPEAR_COOLDOWN_DAYS).toBe(30);
     expect(
-      canSuggestionStatusReappearInFutureRun(COMPETITOR_SUGGESTION_STATUS.EXPIRED),
+      canSuggestionStatusReappearInFutureRun(
+        COMPETITOR_SUGGESTION_STATUS.EXPIRED,
+      ),
     ).toBe(true);
     expect(
-      canSuggestionStatusReappearInFutureRun(COMPETITOR_SUGGESTION_STATUS.ACCEPTED),
+      canSuggestionStatusReappearInFutureRun(
+        COMPETITOR_SUGGESTION_STATUS.ACCEPTED,
+      ),
     ).toBe(false);
   });
 });

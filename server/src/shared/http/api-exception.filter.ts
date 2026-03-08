@@ -97,7 +97,7 @@ function extractHttpExceptionMessage(
     return exceptionResponse;
   }
 
-  const message = Reflect.get(exceptionResponse, 'message');
+  const message = getObjectProperty(exceptionResponse, 'message');
 
   if (Array.isArray(message)) {
     return 'Request validation failed';
@@ -117,16 +117,16 @@ function extractHttpExceptionDetails(
     return undefined;
   }
 
-  const message = Reflect.get(exceptionResponse, 'message');
+  const message = getObjectProperty(exceptionResponse, 'message');
   if (Array.isArray(message)) {
     return message;
   }
 
-  return Reflect.get(exceptionResponse, 'details');
+  return getObjectProperty(exceptionResponse, 'details');
 }
 
 function mapHttpStatusToErrorCode(
-  status: number,
+  status: HttpStatus,
   message: string,
 ): ApiErrorCode {
   switch (status) {
@@ -149,4 +149,10 @@ function mapHttpStatusToErrorCode(
     default:
       return API_ERROR_CODES.INTERNAL_ERROR;
   }
+}
+
+function getObjectProperty(value: object, property: string): unknown {
+  const candidate = value as Record<string, unknown>;
+
+  return candidate[property];
 }

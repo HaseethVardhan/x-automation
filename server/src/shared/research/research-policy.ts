@@ -1,7 +1,6 @@
 export const CREATOR_HISTORY_POLICY_SCOPE = 'global' as const;
 
-export type CreatorHistoryPolicyScope =
-  typeof CREATOR_HISTORY_POLICY_SCOPE;
+export type CreatorHistoryPolicyScope = typeof CREATOR_HISTORY_POLICY_SCOPE;
 
 export type CreatorHistoryPolicy = Readonly<{
   scope: CreatorHistoryPolicyScope;
@@ -27,12 +26,13 @@ export const CREATOR_HISTORY_POLICY: CreatorHistoryPolicy = Object.freeze({
   absolutePostCap: 250,
 });
 
-export const NOVELTY_LOOKBACK_DAYS_POLICY: BoundedIntegerPolicy =
-  Object.freeze({
+export const NOVELTY_LOOKBACK_DAYS_POLICY: BoundedIntegerPolicy = Object.freeze(
+  {
     defaultValue: 120,
     minimumValue: 30,
     maximumValue: 365,
-  });
+  },
+);
 
 export function isNoveltyLookbackDaysInRange(value: unknown): value is number {
   return (

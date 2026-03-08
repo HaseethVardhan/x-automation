@@ -36,18 +36,18 @@ describe('provider and credential security policy', () => {
     expect(CREDENTIAL_DATA_KEY_ALGORITHM).toBe('AES-256-GCM');
     expect(CREDENTIAL_WRAPPING_KEY_PROVIDER).toBe('kms-or-vault');
     expect(LOCAL_DEVELOPMENT_KEY_FALLBACK_ALLOWED).toBe(true);
-    expect(LOCAL_DEVELOPMENT_KEY_FALLBACK_SCOPE).toBe(
-      'local-development-only',
-    );
-    expect(CREDENTIAL_MUTATION_ACTOR).toBe(
-      'authenticated-owner-admin-only',
-    );
+    expect(LOCAL_DEVELOPMENT_KEY_FALLBACK_SCOPE).toBe('local-development-only');
+    expect(CREDENTIAL_MUTATION_ACTOR).toBe('authenticated-owner-admin-only');
   });
 
   it('defines a wrapped-key rotation procedure', () => {
     expect(WRAPPED_KEY_ROTATION_PROCEDURE).toHaveLength(5);
-    expect(WRAPPED_KEY_ROTATION_PROCEDURE[0]).toContain('new active wrapping-key version');
-    expect(WRAPPED_KEY_ROTATION_PROCEDURE[4]).toContain('Retire the old wrapping key version');
+    expect(WRAPPED_KEY_ROTATION_PROCEDURE[0]).toContain(
+      'new active wrapping-key version',
+    );
+    expect(WRAPPED_KEY_ROTATION_PROCEDURE[4]).toContain(
+      'Retire the old wrapping key version',
+    );
   });
 
   it('restricts browser automation to passive read-only actions', () => {

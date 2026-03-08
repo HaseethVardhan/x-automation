@@ -41,5 +41,7 @@ export function isApiResponsePayload(
     return false;
   }
 
-  return Object.prototype.hasOwnProperty.call(value, 'data');
+  const candidate = value as Record<string, unknown>;
+
+  return 'data' in candidate;
 }
