@@ -58,10 +58,29 @@ model ManagedAccount {
   updatedAt            DateTime                 @updatedAt
   archivedAt           DateTime?
   createdByAdminUser   AdminUser                @relation(fields: [createdByAdminUserId], references: [id])
+  preferenceProfile    AccountPreference?
   credentials          ManagedAccountCredential[]
 
   @@index([status])
   @@index([category])
+}
+
+model AccountPreference {
+  id                           String         @id @default(uuid())
+  managedAccountId             String         @unique
+  objective                    String?
+  toneGuidance                 Json?
+  bannedThemes                 Json?
+  bannedClaims                 Json?
+  bannedFormats                Json?
+  preferredFormats             Json?
+  competitorSuggestionEnabled  Boolean        @default(true)
+  externalTrendEnabled         Boolean        @default(true)
+  noveltyLookbackDays          Int            @default(120)
+  maxDraftVariants             Int            @default(3)
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
+  managedAccount               ManagedAccount @relation(fields: [managedAccountId], references: [id])
 }
 
 model ManagedAccountCredential {
