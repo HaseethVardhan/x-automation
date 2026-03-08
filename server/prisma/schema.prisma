@@ -52,6 +52,45 @@ enum SuggestionStatus {
   EXPIRED
 }
 
+enum RunStatus {
+  QUEUED
+  RUNNING
+  PARTIAL
+  FAILED
+  COMPLETED
+  REVIEWED
+  CANCELED
+}
+
+enum RunPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum RunStage {
+  PREPARE
+  COLLECT_CREATOR_DATA
+  ANALYZE_CREATOR
+  SUGGEST_COMPETITORS
+  COLLECT_COMPETITOR_DATA
+  ANALYZE_COMPETITORS
+  COLLECT_TRENDS
+  SCORE_TOPICS
+  GENERATE_DRAFTS
+  VALIDATE_DRAFTS
+  FINALIZE_RUN
+}
+
+enum StageStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+  SKIPPED
+}
+
 model AdminUser {
   id                        String                    @id @default(uuid())
   email                     String                    @unique
@@ -61,6 +100,7 @@ model AdminUser {
   managedAccounts           ManagedAccount[]
   managedAccountCredentials ManagedAccountCredential[]
   createdCompetitors        Competitor[]
+  requestedResearchRuns     ResearchRun[]
 }
 
 model ManagedAccount {
@@ -81,9 +121,58 @@ model ManagedAccount {
   credentials          ManagedAccountCredential[]
   competitors          Competitor[]
   competitorSuggestions CompetitorSuggestion[]
+  researchRuns         ResearchRun[]
 
   @@index([status])
   @@index([category])
+}
+
+model ResearchRun {
+  id                     String                 @id @default(uuid())
+  managedAccountId       String
+  requestedByAdminUserId String
+  status                 RunStatus
+  priority               RunPriority            @default(NORMAL)
+  currentStage           RunStage?
+  progressPercent        Int                    @default(0)
+  inputSnapshot          Json
+  summary                Json?
+  warningCount           Int                    @default(0)
+  errorCount             Int                    @default(0)
+  startedAt              DateTime?
+  completedAt            DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  managedAccount         ManagedAccount         @relation(fields: [managedAccountId], references: [id])
+  requestedByAdminUser   AdminUser              @relation(fields: [requestedByAdminUserId], references: [id])
+  stages                 ResearchRunStage[]
+  generatedCompetitorSuggestions CompetitorSuggestion[]
+
+  @@index([managedAccountId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([currentStage])
+}
+
+model ResearchRunStage {
+  id              String       @id @default(uuid())
+  researchRunId   String
+  stage           RunStage
+  attemptNumber   Int          @default(1)
+  status          StageStatus
+  progressPercent Int          @default(0)
+  inputRef        Json?
+  outputRef       Json?
+  errorCode       String?
+  errorMessage    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  researchRun     ResearchRun  @relation(fields: [researchRunId], references: [id])
+
+  @@unique([researchRunId, stage, attemptNumber])
+  @@index([researchRunId, stage])
+  @@index([status])
 }
 
 model Competitor {
@@ -119,6 +208,7 @@ model CompetitorSuggestion {
   updatedAt          DateTime             @updatedAt
   decidedAt          DateTime?
   managedAccount     ManagedAccount       @relation(fields: [managedAccountId], references: [id])
+  generatedByRun     ResearchRun?         @relation(fields: [generatedByRunId], references: [id])
   acceptedCompetitor Competitor?          @relation("AcceptedCompetitorFromSuggestion")
 
   @@unique([managedAccountId, xHandle, status])
