@@ -1,8 +1,10 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { hasAuthToken } from '../services/auth'
+import { useAuthSession } from '../shared/hooks/useAuthSession'
 
 export function PublicLayout() {
-  if (hasAuthToken()) {
+  const { isAuthenticated } = useAuthSession()
+
+  if (isAuthenticated) {
     return <Navigate to="/home" replace />
   }
 

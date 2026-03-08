@@ -4,10 +4,10 @@ import { AuthenticatedLayout } from './layouts/AuthenticatedLayout'
 import { PublicLayout } from './layouts/PublicLayout'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
-import { hasAuthToken } from './services/auth'
+import { useAuthSession } from './shared/hooks/useAuthSession'
 
 function App() {
-  const isAuthenticated = hasAuthToken()
+  const { isAuthenticated } = useAuthSession()
 
   return (
     <Routes>

@@ -1,10 +1,12 @@
 import { Outlet, Navigate, useNavigate } from 'react-router-dom'
-import { clearAuthToken, hasAuthToken } from '../services/auth'
+import { clearAuthToken } from '../services/auth'
+import { useAuthSession } from '../shared/hooks/useAuthSession'
 
 export function AuthenticatedLayout() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuthSession()
 
-  if (!hasAuthToken()) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
