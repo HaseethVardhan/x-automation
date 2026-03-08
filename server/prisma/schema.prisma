@@ -21,32 +21,67 @@ enum AccountConnectionMode {
   HYBRID
 }
 
+enum CredentialType {
+  X_API_TOKEN
+  X_API_REFRESH_TOKEN
+  BROWSER_SESSION
+}
+
+enum CredentialStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+  INVALID
+}
+
 model AdminUser {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  managedAccounts ManagedAccount[]
+  id                        String                    @id @default(uuid())
+  email                     String                    @unique
+  passwordHash              String
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  managedAccounts           ManagedAccount[]
+  managedAccountCredentials ManagedAccountCredential[]
 }
 
 model ManagedAccount {
-  id                   String                @id @default(uuid())
-  xHandle              String                @unique
+  id                   String                   @id @default(uuid())
+  xHandle              String                   @unique
   displayName          String?
   category             String
-  status               ManagedAccountStatus  @default(ACTIVE)
+  status               ManagedAccountStatus     @default(ACTIVE)
   connectionMode       AccountConnectionMode
   goalsSummary         String?
   notes                String?
   createdByAdminUserId String
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
   archivedAt           DateTime?
-  createdByAdminUser   AdminUser             @relation(fields: [createdByAdminUserId], references: [id])
+  createdByAdminUser   AdminUser                @relation(fields: [createdByAdminUserId], references: [id])
+  credentials          ManagedAccountCredential[]
 
   @@index([status])
   @@index([category])
+}
+
+model ManagedAccountCredential {
+  id                   String           @id @default(uuid())
+  managedAccountId     String
+  credentialType       CredentialType
+  encryptedPayload     String
+  keyVersion           String
+  status               CredentialStatus @default(ACTIVE)
+  lastValidatedAt      DateTime?
+  expiresAt            DateTime?
+  createdByAdminUserId String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  revokedAt            DateTime?
+  managedAccount       ManagedAccount   @relation(fields: [managedAccountId], references: [id])
+  createdByAdminUser   AdminUser        @relation(fields: [createdByAdminUserId], references: [id])
+
+  @@index([managedAccountId, credentialType])
+  @@index([status])
 }
 
 model Creator {
