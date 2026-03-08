@@ -7,8 +7,10 @@ import {
 } from './managed-account.constants';
 import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
 import {
+  ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
   DUPLICATE_HANDLE_API_MESSAGE,
   MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
+  AccountAlreadyArchivedException,
   DuplicateManagedAccountHandleException,
   ManagedAccountNotFoundException,
 } from './managed-accounts.errors';
@@ -21,6 +23,7 @@ describe('ManagedAccountsService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -181,6 +184,148 @@ describe('ManagedAccountsService', () => {
         },
       },
     });
+  });
+
+  it('updates only the provided managed account fields and returns the updated record', async () => {
+    const currentCreatedAt = new Date('2026-03-01T10:00:00.000Z');
+    const currentUpdatedAt = new Date('2026-03-08T10:00:00.000Z');
+    const nextUpdatedAt = new Date('2026-03-08T12:00:00.000Z');
+
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Old goal',
+      notes: 'Old note',
+      archivedAt: null,
+      createdAt: currentCreatedAt,
+      updatedAt: currentUpdatedAt,
+    });
+    prisma.managedAccount.update.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: null,
+      category: 'ai-tools',
+      status: MANAGED_ACCOUNT_STATUS.PAUSED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'New goal',
+      notes: null,
+      archivedAt: null,
+      createdAt: currentCreatedAt,
+      updatedAt: nextUpdatedAt,
+    });
+
+    await expect(
+      service.updateAccount('account-123', {
+        displayName: null,
+        category: 'ai-tools',
+        goalsSummary: 'New goal',
+        notes: null,
+        status: MANAGED_ACCOUNT_STATUS.PAUSED,
+      }),
+    ).resolves.toEqual({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: null,
+      category: 'ai-tools',
+      status: MANAGED_ACCOUNT_STATUS.PAUSED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'New goal',
+      notes: null,
+      archivedAt: null,
+      createdAt: currentCreatedAt,
+      updatedAt: nextUpdatedAt,
+    });
+
+    expect(prisma.managedAccount.update).toHaveBeenCalledWith({
+      where: { id: 'account-123' },
+      data: {
+        displayName: null,
+        category: 'ai-tools',
+        goalsSummary: 'New goal',
+        notes: null,
+        status: MANAGED_ACCOUNT_STATUS.PAUSED,
+      },
+      select: {
+        id: true,
+        xHandle: true,
+        displayName: true,
+        category: true,
+        status: true,
+        connectionMode: true,
+        goalsSummary: true,
+        notes: true,
+        archivedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  });
+
+  it('returns the existing record without updating when the patch body is empty', async () => {
+    const createdAt = new Date('2026-03-01T10:00:00.000Z');
+    const updatedAt = new Date('2026-03-08T10:00:00.000Z');
+
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt: null,
+      createdAt,
+      updatedAt,
+    });
+
+    await expect(service.updateAccount('account-123', {})).resolves.toEqual({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ACTIVE,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'Goal',
+      notes: 'Note',
+      archivedAt: null,
+      createdAt,
+      updatedAt,
+    });
+
+    expect(prisma.managedAccount.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects updates to archived managed accounts', async () => {
+    prisma.managedAccount.findUnique.mockResolvedValue({
+      id: 'account-123',
+      xHandle: 'creator_handle',
+      displayName: 'Creator Name',
+      category: 'startup',
+      status: MANAGED_ACCOUNT_STATUS.ARCHIVED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: null,
+      notes: null,
+      archivedAt: new Date('2026-03-08T10:00:00.000Z'),
+      createdAt: new Date('2026-03-01T10:00:00.000Z'),
+      updatedAt: new Date('2026-03-08T10:00:00.000Z'),
+    });
+
+    const archivedUpdate = service.updateAccount('account-123', {
+      status: MANAGED_ACCOUNT_STATUS.PAUSED,
+    });
+
+    await expect(archivedUpdate).rejects.toThrow(AccountAlreadyArchivedException);
+    await expect(archivedUpdate).rejects.toMatchObject({
+      code: API_ERROR_CODES.ACCOUNT_ALREADY_ARCHIVED,
+      message: ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
+    });
+
+    expect(prisma.managedAccount.update).not.toHaveBeenCalled();
   });
 
   it('returns null latest run summary and unset readiness inputs when related data is missing', async () => {

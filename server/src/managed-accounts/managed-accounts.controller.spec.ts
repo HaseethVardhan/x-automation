@@ -16,8 +16,10 @@ import {
 } from './managed-account.constants';
 import { ManagedAccountsController } from './managed-accounts.controller';
 import {
+  ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
   DUPLICATE_HANDLE_API_MESSAGE,
   MANAGED_ACCOUNT_NOT_FOUND_API_MESSAGE,
+  AccountAlreadyArchivedException,
   DuplicateManagedAccountHandleException,
   ManagedAccountNotFoundException,
 } from './managed-accounts.errors';
@@ -27,6 +29,7 @@ const managedAccountsService = {
   getAccountDetail: jest.fn(),
   listAccounts: jest.fn(),
   createAccount: jest.fn(),
+  updateAccount: jest.fn(),
 };
 
 class AuthenticatedGuardStub implements CanActivate {
@@ -195,6 +198,129 @@ describe('ManagedAccountsController', () => {
             status: 'COMPLETED',
             currentStage: 'FINALIZE_RUN',
             progressPercent: 100,
+          },
+        });
+      });
+
+    await app.close();
+  });
+
+  it('updates a managed account with patch semantics and normalized nullable fields', async () => {
+    const createdAt = new Date('2026-03-01T10:00:00.000Z');
+    const updatedAt = new Date('2026-03-08T12:00:00.000Z');
+    const app = await createApp();
+
+    managedAccountsService.updateAccount.mockResolvedValue({
+      id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      xHandle: 'creator_handle',
+      displayName: null,
+      category: 'ai-tools',
+      status: MANAGED_ACCOUNT_STATUS.PAUSED,
+      connectionMode: MANAGED_ACCOUNT_CONNECTION_MODE.HYBRID,
+      goalsSummary: 'New goal',
+      notes: null,
+      archivedAt: null,
+      createdAt,
+      updatedAt,
+    });
+
+    await request(getHttpServer(app))
+      .patch('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a')
+      .send({
+        displayName: '   ',
+        category: '  ai-tools  ',
+        goalsSummary: '  New goal  ',
+        notes: '',
+        status: 'PAUSED',
+      })
+      .expect(200)
+      .expect((response: SupertestResponse) => {
+        const body = getSuccessBody(response);
+
+        expect(managedAccountsService.updateAccount).toHaveBeenCalledWith(
+          '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          {
+            displayName: null,
+            category: 'ai-tools',
+            goalsSummary: 'New goal',
+            notes: null,
+            status: MANAGED_ACCOUNT_STATUS.PAUSED,
+          },
+        );
+        expect(body.success).toBe(true);
+        expect(body.data).toMatchObject({
+          id: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+          displayName: null,
+          category: 'ai-tools',
+          status: MANAGED_ACCOUNT_STATUS.PAUSED,
+          goalsSummary: 'New goal',
+          notes: null,
+        });
+      });
+
+    await app.close();
+  });
+
+  it('validates managed account patch fields and disallows ARCHIVED status through patch', async () => {
+    const app = await createApp();
+
+    await request(getHttpServer(app))
+      .patch('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a')
+      .send({
+        category: '   ',
+        status: 'ARCHIVED',
+      })
+      .expect(400)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+        const details = getValidationDetails(body);
+
+        expect(body.error.code).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+        expect(details).toEqual(
+          expect.arrayContaining([
+            {
+              field: 'category',
+              errors: expect.arrayContaining(['category should not be empty']),
+            },
+            {
+              field: 'status',
+              errors: expect.arrayContaining([
+                'status must be one of the following values: ACTIVE, PAUSED, DISCONNECTED',
+              ]),
+            },
+          ]),
+        );
+      });
+
+    expect(managedAccountsService.updateAccount).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('surfaces archived-account conflicts through the shared error envelope', async () => {
+    const app = await createApp();
+
+    managedAccountsService.updateAccount.mockRejectedValue(
+      new AccountAlreadyArchivedException(
+        '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
+      ),
+    );
+
+    await request(getHttpServer(app))
+      .patch('/managed-accounts/9c4989a1-23eb-4c15-93a8-cf0b038c521a')
+      .send({
+        status: 'PAUSED',
+      })
+      .expect(409)
+      .expect((response: SupertestResponse) => {
+        const body = getErrorBody(response);
+
+        expect(body.success).toBe(false);
+        expect(body.error).toEqual({
+          code: API_ERROR_CODES.ACCOUNT_ALREADY_ARCHIVED,
+          message: ACCOUNT_ALREADY_ARCHIVED_API_MESSAGE,
+          details: {
+            accountId: '9c4989a1-23eb-4c15-93a8-cf0b038c521a',
           },
         });
       });

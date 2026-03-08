@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { apiResponse } from '../shared/http/api-response';
 import type { ApiRequest } from '../shared/http/request-context';
@@ -6,6 +6,7 @@ import {
   CreateManagedAccountDto,
   ListManagedAccountsQueryDto,
   ManagedAccountParamsDto,
+  UpdateManagedAccountDto,
 } from './dto';
 import { ManagedAccountsService } from './managed-accounts.service';
 
@@ -35,6 +36,17 @@ export class ManagedAccountsController {
   @Get(':accountId')
   getDetail(@Param() params: ManagedAccountParamsDto) {
     return this.managedAccountsService.getAccountDetail(params.accountId);
+  }
+
+  @Patch(':accountId')
+  update(
+    @Param() params: ManagedAccountParamsDto,
+    @Body() updateManagedAccountDto: UpdateManagedAccountDto,
+  ) {
+    return this.managedAccountsService.updateAccount(
+      params.accountId,
+      updateManagedAccountDto,
+    );
   }
 
   @Post()

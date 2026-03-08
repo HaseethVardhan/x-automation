@@ -5,11 +5,14 @@ import { buildPaginationMeta, type PaginationMeta } from '../shared/pagination/p
 import {
 	MANAGED_ACCOUNT_STATUS,
 	type ManagedAccountConnectionMode,
+	type ManagedAccountMutableStatus,
 	type ManagedAccountStatus,
 } from './managed-account.constants';
 import { CreateManagedAccountDto } from './dto/create-managed-account.dto';
 import { ListManagedAccountsQueryDto } from './dto/list-managed-accounts-query.dto';
+import { UpdateManagedAccountDto } from './dto/update-managed-account.dto';
 import {
+	AccountAlreadyArchivedException,
 	DuplicateManagedAccountHandleException,
 	ManagedAccountNotFoundException,
 } from './managed-accounts.errors';
@@ -17,6 +20,36 @@ import {
 @Injectable()
 export class ManagedAccountsService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async updateAccount(
+		accountId: string,
+		updateManagedAccountDto: UpdateManagedAccountDto,
+	): Promise<ManagedAccountResponse> {
+		const account = await this.prisma.managedAccount.findUnique({
+			where: { id: accountId },
+			select: MANAGED_ACCOUNT_RESPONSE_SELECT,
+		});
+
+		if (!account) {
+			throw new ManagedAccountNotFoundException(accountId);
+		}
+
+		if (account.status === MANAGED_ACCOUNT_STATUS.ARCHIVED) {
+			throw new AccountAlreadyArchivedException(accountId);
+		}
+
+		const data = buildManagedAccountUpdateData(updateManagedAccountDto);
+
+		if (Object.keys(data).length === 0) {
+			return account;
+		}
+
+		return this.prisma.managedAccount.update({
+			where: { id: accountId },
+			data,
+			select: MANAGED_ACCOUNT_RESPONSE_SELECT,
+		});
+	}
 
 	async getAccountDetail(accountId: string): Promise<ManagedAccountDetailResponse> {
 		const account = await this.prisma.managedAccount.findUnique({
@@ -296,6 +329,38 @@ function getLatestDate(dates: Date[]): Date | null {
 	return dates.reduce((latestDate, currentDate) =>
 		currentDate.getTime() > latestDate.getTime() ? currentDate : latestDate,
 	);
+}
+
+function buildManagedAccountUpdateData(
+	updateManagedAccountDto: UpdateManagedAccountDto,
+): Prisma.ManagedAccountUpdateInput {
+	const data: Prisma.ManagedAccountUpdateInput = {};
+
+	if (hasOwn(updateManagedAccountDto, 'displayName')) {
+		data.displayName = updateManagedAccountDto.displayName;
+	}
+
+	if (updateManagedAccountDto.category !== undefined) {
+		data.category = updateManagedAccountDto.category;
+	}
+
+	if (hasOwn(updateManagedAccountDto, 'goalsSummary')) {
+		data.goalsSummary = updateManagedAccountDto.goalsSummary;
+	}
+
+	if (hasOwn(updateManagedAccountDto, 'notes')) {
+		data.notes = updateManagedAccountDto.notes;
+	}
+
+	if (updateManagedAccountDto.status !== undefined) {
+		data.status = updateManagedAccountDto.status as ManagedAccountMutableStatus;
+	}
+
+	return data;
+}
+
+function hasOwn(value: object, property: string): boolean {
+	return Object.prototype.hasOwnProperty.call(value, property);
 }
 
 function isDuplicateXHandleError(error: unknown): boolean {
